@@ -274,6 +274,55 @@ class _PluginRegistrant {
     ProcessManager: () => FakeProcessManager.any(),
   }, testOn: 'posix');
 
+  testUsingContext('Imports main of a workspace member nested under the root lib/', () async {
+    final command = _DummyFlutterCommand();
+    final CommandRunner<void> runner = createTestCommandRunner(command);
+
+    final Directory appDir = fileSystem.directory('/workspace/lib/my_app')
+      ..createSync(recursive: true);
+    fileSystem.currentDirectory = appDir;
+    fileSystem.file('lib/main.dart').createSync(recursive: true);
+    fileSystem.file('tizen/tizen-manifest.xml').createSync(recursive: true);
+    fileSystem.file('pubspec.yaml').writeAsStringSync('name: my_app\n');
+    fileSystem.file('.dart_tool/package_config.json')
+      ..createSync(recursive: true)
+      ..writeAsStringSync(jsonEncode(<String, Object?>{
+        'configVersion': 2,
+        'packages': <Object?>[
+          <String, Object?>{
+            'name': 'root',
+            'rootUri': '../../../',
+            'packageUri': 'lib/',
+            'languageVersion': '3.7',
+          },
+          <String, Object?>{
+            'name': 'my_app',
+            'rootUri': '../',
+            'packageUri': 'lib/',
+            'languageVersion': '3.7',
+          },
+        ],
+      }));
+    writePackageGraph(<Package>[
+      (
+        name: 'my_app',
+        pluginType: PluginType.none,
+        dependencies: <String>[],
+        devDependencies: <String>[],
+      ),
+    ]);
+
+    await runner.run(<String>['dummy']);
+
+    final File generatedMain = fileSystem.file('tizen/flutter/generated_main.dart');
+    expect(generatedMain, exists);
+    expect(generatedMain.readAsStringSync(),
+        contains("import 'package:my_app/main.dart' as entrypoint;"));
+  }, overrides: <Type, Generator>{
+    FileSystem: () => fileSystem,
+    ProcessManager: () => FakeProcessManager.any(),
+  }, testOn: 'posix');
+
   testUsingContext('Generates native plugin registrant for C++', () async {
     fileSystem.file('tizen/tizen-manifest.xml').createSync(recursive: true);
 
