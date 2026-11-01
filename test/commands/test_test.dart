@@ -171,7 +171,7 @@ dev_dependencies:
     final File generatedEntrypoint =
         fileSystem.file('/.tmp_rand0/rand0/some_integration_test.dart');
     expect(testWrapper.lastArgs, contains(generatedEntrypoint.uri.toString()));
-    expect(generatedEntrypoint.readAsStringSync(), contains('''
+    expect(generatedEntrypoint.readAsStringSync(), contains(r'''
 //
 // Generated file. Do not edit.
 //
@@ -181,7 +181,14 @@ import 'file:///integration_test/some_integration_test.dart' as entrypoint;
 import 'package:some_dart_plugin/src/some_dart_plugin_tizen.dart';
 
 Future<void> main() {
-  SomeDartPlugin.register();
+  try {
+    SomeDartPlugin.register();
+  } catch (err) {
+    print(
+      '`some_dart_plugin` threw an error: $err. '
+      'The app may not function as expected until you remove this plugin from pubspec.yaml'
+    );
+  }
   return Future<void>.sync(entrypoint.main);
 }
 '''));

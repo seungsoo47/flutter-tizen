@@ -257,7 +257,7 @@ ${package.devDependencies.map((String d) => '  $d: {path: $d}').join('\n')}
 
     final File generatedMain = fileSystem.file('tizen/flutter/generated_main.dart');
     expect(generatedMain, exists);
-    expect(generatedMain.readAsStringSync(), contains('''
+    expect(generatedMain.readAsStringSync(), contains(r'''
 import 'package:some_dart_plugin/some_dart_plugin.dart';
 import 'package:flutter/src/dart_plugin_registrant.dart';
 
@@ -265,7 +265,14 @@ import 'package:flutter/src/dart_plugin_registrant.dart';
 class _PluginRegistrant {
   @pragma('vm:entry-point')
   static void register() {
-    SomeDartPlugin.register();
+    try {
+      SomeDartPlugin.register();
+    } catch (err) {
+      print(
+        '`some_dart_plugin` threw an error: $err. '
+        'The app may not function as expected until you remove this plugin from pubspec.yaml'
+      );
+    }
   }
 }
 '''));

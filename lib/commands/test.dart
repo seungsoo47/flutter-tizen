@@ -75,7 +75,7 @@ class TizenTestRunner implements FlutterTestRunner {
       };
       final File newTestFile = runnerDir.childFile(testFile.basename);
       await renderTemplateToFile(
-        '''
+        r'''
 //
 // Generated file. Do not edit.
 //
@@ -88,7 +88,14 @@ import 'package:{{name}}/{{dartFileName}}';
 
 Future<void> main() {
 {{#plugins}}
-  {{dartPluginClass}}.register();
+  try {
+    {{dartPluginClass}}.register();
+  } catch (err) {
+    print(
+      '`{{name}}` threw an error: $err. '
+      'The app may not function as expected until you remove this plugin from pubspec.yaml'
+    );
+  }
 {{/plugins}}
   return Future<void>.sync(entrypoint.main);
 }

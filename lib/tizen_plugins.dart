@@ -281,13 +281,14 @@ List<String> _findDartEntrypoints(File dartFile) {
   return names;
 }
 
-const _generatedMainTemplate = '''
+const _generatedMainTemplate = r'''
 //
 // Generated file. Do not edit.
 //
 // @dart = {{dartLanguageVersion}}
 
 // ignore_for_file: avoid_classes_with_only_static_members
+// ignore_for_file: avoid_print
 // ignore_for_file: avoid_private_typedef_functions
 // ignore_for_file: depend_on_referenced_packages
 // ignore_for_file: directives_ordering
@@ -306,7 +307,14 @@ class _PluginRegistrant {
   @pragma('vm:entry-point')
   static void register() {
 {{#plugins}}
-    {{dartPluginClass}}.register();
+    try {
+      {{dartPluginClass}}.register();
+    } catch (err) {
+      print(
+        '`{{name}}` threw an error: $err. '
+        'The app may not function as expected until you remove this plugin from pubspec.yaml'
+      );
+    }
 {{/plugins}}
   }
 }
