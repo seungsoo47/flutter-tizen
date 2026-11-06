@@ -316,6 +316,72 @@ flutter:
     ProcessManager: () => FakeProcessManager.any(),
   }, testOn: 'posix');
 
+  /// Makes [packageName] in [graph] depend on the `flutter` package.
+  void addFlutterDependency(List<Package> graph, String packageName) {
+    writePackageGraph(<Package>[
+      for (final Package package in graph)
+        (
+          name: package.name,
+          pluginType: package.pluginType,
+          dependencies: <String>[
+            ...package.dependencies,
+            if (package.name == packageName) 'flutter',
+          ],
+          devDependencies: package.devDependencies,
+        ),
+      (
+        name: 'flutter',
+        pluginType: PluginType.none,
+        dependencies: <String>[],
+        devDependencies: <String>[],
+      ),
+    ]);
+    fileSystem.file('flutter_sdk/pubspec.yaml')
+      ..createSync(recursive: true)
+      ..writeAsStringSync('name: flutter\n');
+    final File packageConfigFile = fileSystem.file('.dart_tool/package_config.json');
+    final packageConfig = jsonDecode(packageConfigFile.readAsStringSync()) as Map<String, Object?>;
+    (packageConfig['packages']! as List<Object?>).add(<String, Object?>{
+      'name': 'flutter',
+      'rootUri': '../flutter_sdk',
+      'packageUri': 'lib/',
+      'languageVersion': '3.7',
+    });
+    packageConfigFile.writeAsStringSync(jsonEncode(packageConfig));
+  }
+
+  testUsingContext('Skips Tizen tooling for packages that do not depend on Flutter', () async {
+    fileSystem.file('tizen/tizen-manifest.xml').createSync(recursive: true);
+
+    final graph = <Package>[
+      (
+        name: 'my_app',
+        pluginType: PluginType.none,
+        dependencies: <String>['some_native_plugin'],
+        devDependencies: <String>[],
+      ),
+      (
+        name: 'some_native_plugin',
+        pluginType: PluginType.native,
+        dependencies: <String>[],
+        devDependencies: <String>[],
+      ),
+    ];
+    await validatesComputeTransitiveDependencies(graph);
+
+    await ensureReadyForTizenTooling(FlutterProject.fromDirectoryTest(fileSystem.currentDirectory));
+    expect(fileSystem.file('tizen/flutter/generated_plugin_registrant.h'), isNot(exists));
+
+    // A transitive dependency on Flutter is enough.
+    addFlutterDependency(graph, 'some_native_plugin');
+
+    await ensureReadyForTizenTooling(FlutterProject.fromDirectoryTest(fileSystem.currentDirectory));
+    expect(fileSystem.file('tizen/flutter/generated_plugin_registrant.h'), exists);
+  }, overrides: <Type, Generator>{
+    FileSystem: () => fileSystem,
+    ProcessManager: () => FakeProcessManager.any(),
+  });
+
   testUsingContext('Generates native plugin registrant for C++', () async {
     fileSystem.file('tizen/tizen-manifest.xml').createSync(recursive: true);
 

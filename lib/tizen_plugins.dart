@@ -3,6 +3,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+import 'dart:collection';
 import 'dart:convert';
 
 import 'package:analyzer/dart/analysis/analysis_context.dart';
@@ -409,12 +410,42 @@ Future<void> ensureReadyForTizenTooling(FlutterProject project) async {
   if (!project.directory.existsSync() || project.isPlugin) {
     return;
   }
+  // Packages that do not depend on Flutter (such as a pub workspace root that
+  // is a plain Dart package) are skipped, so that a stray tizen/ directory in
+  // one of them is not populated with Flutter project files.
+  // See https://github.com/flutter/flutter/issues/189550.
+  if (!_dependsOnFlutter(PackageGraph.load(project), project.manifest.appName)) {
+    return;
+  }
   final tizenProject = TizenProject.fromFlutter(project);
   await tizenProject.ensureReadyForPlatformSpecificTooling();
 
   await _ensurePluginsReadyForTizenTooling(project);
   await injectTizenPlugins(project);
   await _informAvailableTizenPlugins(project);
+}
+
+/// Whether [packageName] depends on the `flutter` package, directly or
+/// transitively, according to the resolved package [graph].
+///
+/// Source: `PackagesGetCommand._dependsOnFlutter` in `packages.dart`
+bool _dependsOnFlutter(PackageGraph graph, String packageName) {
+  final visited = <String>{};
+  final toVisit = Queue<String>.of(<String>[packageName]);
+  while (toVisit.isNotEmpty) {
+    final String current = toVisit.removeFirst();
+    if (!visited.add(current)) {
+      continue;
+    }
+    if (current == 'flutter') {
+      return true;
+    }
+    final List<String>? dependencies = graph.dependencies[current];
+    if (dependencies != null) {
+      toVisit.addAll(dependencies);
+    }
+  }
+  return false;
 }
 
 Future<void> _ensurePluginsReadyForTizenTooling(FlutterProject project) async {
