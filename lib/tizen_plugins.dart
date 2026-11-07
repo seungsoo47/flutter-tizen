@@ -100,13 +100,13 @@ class TizenPlugin extends PluginPlatform implements NativeOrDartPlugin {
       kNamespace: namespace,
     }.entries) {
       final Object? value = entry.value;
-      if (value is String && !_identifierPattern.hasMatch(value)) {
+      if (value != null && (value is! String || !_identifierPattern.hasMatch(value))) {
         throwToolExit(
           'The plugin `$name` has an invalid `${entry.key}` in its tizen plugin declaration.',
         );
       }
     }
-    if (fileName is String && !_fileNamePattern.hasMatch(fileName)) {
+    if (fileName != null && (fileName is! String || !_fileNamePattern.hasMatch(fileName))) {
       throwToolExit(
           'The plugin `$name` has an invalid `fileName` in its tizen plugin declaration.');
     }

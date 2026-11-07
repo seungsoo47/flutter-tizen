@@ -641,6 +641,11 @@ type = staticLib
       'dartPluginClass: SomePlugin\ndartFileName: src/../../evil.dart':
           'has an invalid `dartFileName`',
       'dartPluginClass: SomePlugin\ndartFileName: 123': 'has an invalid `dartFileName`',
+      'pluginClass: 123\ndartPluginClass: SomePlugin': 'has an invalid `pluginClass`',
+      'pluginClass: SomePlugin\ndartPluginClass: 123': 'has an invalid `dartPluginClass`',
+      'ffiPlugin: true\ndartPluginClass: 123': 'has an invalid `dartPluginClass`',
+      'namespace: [Some]\npluginClass: SomePlugin': 'has an invalid `namespace`',
+      'pluginClass: SomePlugin\nfileName: 123': 'has an invalid `fileName`',
     };
     for (final MapEntry<String, String> entry in invalid.entries) {
       expect(
