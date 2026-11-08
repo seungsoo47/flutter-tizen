@@ -212,6 +212,10 @@ mixin DartPluginRegistry on FlutterCommand {
   @override
   String get targetFile => _targetFile ?? super.targetFile;
 
+  /// The entrypoint given by the user (relative to the current directory, or
+  /// absolute), which [targetFile] wraps.
+  String get userTargetFile => super.targetFile;
+
   /// See: [KernelCompiler.compile] in `compile.dart`
   @override
   Future<BuildInfo> getBuildInfo({

@@ -24,9 +24,12 @@ import 'package:flutter_tools/src/dart/package_map.dart';
 import 'package:flutter_tools/src/globals.dart' as globals;
 import 'package:flutter_tools/src/linux/build_linux.dart';
 import 'package:flutter_tools/src/project.dart';
+import 'package:flutter_tools/src/runner/flutter_command.dart';
 
+import 'build_targets/native_assets.dart';
 import 'build_targets/package.dart';
 import 'tizen_build_info.dart';
+import 'tizen_plugins.dart';
 import 'tizen_project.dart';
 import 'tizen_sdk.dart';
 
@@ -81,6 +84,8 @@ class TizenBuilder {
         kTargetPlatform: targetPlatform,
         ...buildInfo.toBuildSystemEnvironment(),
         kDeviceProfile: tizenBuildInfo.deviceProfile,
+        if (FlutterCommand.current case final DartPluginRegistry command)
+          kUserTargetFile: command.userTargetFile,
       },
       artifacts: globals.artifacts!,
       fileSystem: globals.fs,
@@ -211,6 +216,8 @@ class TizenBuilder {
         kTargetPlatform: targetPlatform,
         ...buildInfo.toBuildSystemEnvironment(),
         kDeviceProfile: tizenBuildInfo.deviceProfile,
+        if (FlutterCommand.current case final DartPluginRegistry command)
+          kUserTargetFile: command.userTargetFile,
       },
       artifacts: globals.artifacts!,
       fileSystem: globals.fs,

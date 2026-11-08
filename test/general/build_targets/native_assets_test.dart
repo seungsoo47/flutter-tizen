@@ -220,6 +220,72 @@ void main() {
     FileSystem: () => fileSystem,
     ProcessManager: () => processManager,
   });
+
+  testUsingContext('Build runner includes dev dependencies for release test targets', () async {
+    final Directory projectDir = fileSystem.currentDirectory;
+    writePackageConfigFiles(directory: projectDir, mainLibName: 'my_app');
+    final environment = Environment.test(
+      projectDir,
+      packageConfigPath: projectDir.childFile('.dart_tool/package_config.json').path,
+      defines: <String, String>{kBuildMode: 'release', kTargetPlatform: 'android-arm64'},
+      fileSystem: fileSystem,
+      logger: logger,
+      artifacts: Artifacts.test(),
+      processManager: processManager,
+    );
+
+    bool includeDevDependencies(String targetFile) {
+      environment.defines[kTargetFile] = targetFile;
+      final runner = createTizenNativeAssetsBuildRunner(environment, BuildMode.release)
+          as FlutterNativeAssetsBuildRunnerImpl;
+      return runner.includeDevDependencies;
+    }
+
+    expect(includeDevDependencies(fileSystem.path.join('lib', 'main.dart')), isFalse);
+    expect(
+        includeDevDependencies(fileSystem.path.join('integration_test', 'app_test.dart')), isTrue);
+    expect(includeDevDependencies(fileSystem.path.join('test_driver', 'app.dart')), isTrue);
+    expect(includeDevDependencies(fileSystem.path.join('test', 'app_test.dart')), isTrue);
+    expect(
+      includeDevDependencies(fileSystem.path.join(projectDir.path, 'integration_test', 'a.dart')),
+      isTrue,
+    );
+  }, overrides: <Type, Generator>{
+    FileSystem: () => fileSystem,
+    ProcessManager: () => processManager,
+  });
+
+  for (final MapEntry<String, bool> entry in <String, bool>{
+    'lib/main.dart': false,
+    'integration_test/app_test.dart': true,
+  }.entries) {
+    testUsingContext('Build runner checks the user target behind generated_main.dart: ${entry.key}',
+        () async {
+      final Directory projectDir = fileSystem.currentDirectory;
+      writePackageConfigFiles(directory: projectDir, mainLibName: 'my_app');
+      final environment = Environment.test(
+        projectDir,
+        packageConfigPath: projectDir.childFile('.dart_tool/package_config.json').path,
+        defines: <String, String>{
+          kBuildMode: 'release',
+          kTargetPlatform: 'android-arm64',
+          kTargetFile: fileSystem.path.join('tizen', 'flutter', 'generated_main.dart'),
+          kUserTargetFile: entry.key,
+        },
+        fileSystem: fileSystem,
+        logger: logger,
+        artifacts: Artifacts.test(),
+        processManager: processManager,
+      );
+
+      final runner = createTizenNativeAssetsBuildRunner(environment, BuildMode.release)
+          as FlutterNativeAssetsBuildRunnerImpl;
+      expect(runner.includeDevDependencies, entry.value);
+    }, overrides: <Type, Generator>{
+      FileSystem: () => fileSystem,
+      ProcessManager: () => processManager,
+    });
+  }
 }
 
 class _RecordingRunner implements FlutterNativeAssetsBuildRunner {

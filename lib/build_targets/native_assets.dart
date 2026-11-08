@@ -22,6 +22,12 @@ import 'package:hooks_runner/hooks_runner.dart' as native;
 import 'package:meta/meta.dart';
 import 'package:package_config/package_config.dart';
 
+/// The define for the entrypoint given by the user.
+///
+/// [kTargetFile] points to `tizen/flutter/generated_main.dart` when
+/// `DartPluginRegistry` wraps the user entrypoint.
+const kUserTargetFile = 'UserTargetFile';
+
 /// Runs the build hooks of all packages with native assets.
 ///
 /// Source: [BuildHooks] in `native_assets.dart`
@@ -43,7 +49,7 @@ class TizenBuildHooks extends Target {
         specifiedTargetPlatform ?? _getTargetPlatformFromEnvironment(environment, name);
     final BuildMode buildMode = _getBuildModeFromEnvironment(environment, name);
     final FlutterNativeAssetsBuildRunner buildRunner =
-        _buildRunner ?? _createBuildRunner(environment, buildMode);
+        _buildRunner ?? createTizenNativeAssetsBuildRunner(environment, buildMode);
 
     final File resultFile = environment.buildDir.childFile(resultFilename);
     if (!resultFile.parent.existsSync()) {
@@ -160,7 +166,7 @@ class TizenLinkHooks extends Target {
           );
         }
         final FlutterNativeAssetsBuildRunner buildRunner =
-            _buildRunner ?? _createBuildRunner(environment, buildMode);
+            _buildRunner ?? createTizenNativeAssetsBuildRunner(environment, buildMode);
         linkResult = await buildRunner.link(
           extensions: _extensionsFor(architecture),
           buildResult: buildResult,
@@ -333,7 +339,12 @@ BuildMode _getBuildModeFromEnvironment(Environment environment, String name) {
   return BuildMode.fromCliName(buildModeEnvironment);
 }
 
-FlutterNativeAssetsBuildRunner _createBuildRunner(Environment environment, BuildMode buildMode) {
+/// Source: [createFlutterNativeAssetsBuildRunner] in `native_assets.dart`
+@visibleForTesting
+FlutterNativeAssetsBuildRunner createTizenNativeAssetsBuildRunner(
+  Environment environment,
+  BuildMode buildMode,
+) {
   final FileSystem fileSystem = environment.fileSystem;
   final File packageConfigFile = fileSystem.file(environment.packageConfigPath);
   final PackageConfig packageConfig = PackageConfig.parseBytes(
@@ -359,9 +370,27 @@ FlutterNativeAssetsBuildRunner _createBuildRunner(Environment environment, Build
     fileSystem,
     environment.logger,
     runPackageName,
-    includeDevDependencies: !buildMode.isRelease,
+    includeDevDependencies: !buildMode.isRelease || _isTestTarget(environment),
     pubspecPath,
   );
+}
+
+bool _isTestTarget(Environment environment) {
+  final String? targetFile =
+      environment.defines[kUserTargetFile] ?? environment.defines[kTargetFile];
+  if (targetFile == null) {
+    return false;
+  }
+  final String absoluteTargetPath = environment.fileSystem.path.isAbsolute(targetFile)
+      ? targetFile
+      : environment.fileSystem.path.join(environment.projectDir.path, targetFile);
+  final String relativePath = environment.fileSystem.path.relative(
+    environment.fileSystem.path.normalize(absoluteTargetPath),
+    from: environment.projectDir.path,
+  );
+  final List<String> parts = environment.fileSystem.path.split(relativePath);
+  return parts.isNotEmpty &&
+      const <String>{'integration_test', 'test_driver', 'test'}.contains(parts.first);
 }
 
 void _ensureNativeAssetsFeaturesEnabled(List<String> packagesWithNativeAssets) {

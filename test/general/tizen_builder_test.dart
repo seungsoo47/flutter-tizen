@@ -4,8 +4,10 @@
 
 import 'package:file/memory.dart';
 import 'package:file_testing/file_testing.dart';
+import 'package:flutter_tizen/build_targets/native_assets.dart';
 import 'package:flutter_tizen/tizen_build_info.dart';
 import 'package:flutter_tizen/tizen_builder.dart';
+import 'package:flutter_tizen/tizen_plugins.dart';
 import 'package:flutter_tizen/tizen_sdk.dart';
 import 'package:flutter_tools/src/base/analyze_size.dart';
 import 'package:flutter_tools/src/base/common.dart';
@@ -16,6 +18,7 @@ import 'package:flutter_tools/src/build_info.dart';
 import 'package:flutter_tools/src/build_system/build_system.dart';
 import 'package:flutter_tools/src/cache.dart';
 import 'package:flutter_tools/src/project.dart';
+import 'package:flutter_tools/src/runner/flutter_command.dart';
 import 'package:unified_analytics/src/analytics.dart';
 
 import '../src/common.dart';
@@ -147,6 +150,32 @@ void main() {
           ),
     });
 
+    testUsingContext('Passes the user target behind generated_main.dart', () async {
+      fileSystem.file('tizen/tizen-manifest.xml')
+        ..createSync(recursive: true)
+        ..writeAsStringSync(_kTizenManifestContents);
+
+      await TizenBuilder().buildTpk(
+        project: project,
+        tizenBuildInfo: tizenBuildInfo,
+        targetFile: 'tizen/flutter/generated_main.dart',
+      );
+    }, overrides: <Type, Generator>{
+      FileSystem: () => fileSystem,
+      ProcessManager: () => FakeProcessManager.any(),
+      Logger: () => logger,
+      TizenSdk: () => FakeTizenSdk(fileSystem),
+      FlutterCommand: () => _WrappingCommand(),
+      BuildSystem: () => TestBuildSystem.all(
+            BuildResult(success: true),
+            (Target target, Environment environment) {
+              expect(environment.defines[kTargetFile], 'tizen/flutter/generated_main.dart');
+              expect(environment.defines[kUserTargetFile], 'integration_test/app_test.dart');
+              environment.outputDir.childFile('package_id-1.0.0.tpk').createSync(recursive: true);
+            },
+          ),
+    });
+
     testUsingContext('Performs code size analysis', () async {
       fileSystem.file('tizen/tizen-manifest.xml')
         ..createSync(recursive: true)
@@ -252,7 +281,50 @@ void main() {
       TizenSdk: () => FakeTizenSdk(fileSystem),
       BuildSystem: () => TestBuildSystem.all(BuildResult(success: true)),
     });
+
+    testUsingContext('Passes the user target to the module build', () async {
+      fileSystem.file('tizen/tizen-manifest.xml')
+        ..createSync(recursive: true)
+        ..writeAsStringSync(_kTizenManifestContents);
+
+      await TizenBuilder().buildModule(
+        project: project,
+        tizenBuildInfo: tizenBuildInfo,
+        targetFile: 'tizen/flutter/generated_main.dart',
+      );
+    }, overrides: <Type, Generator>{
+      FileSystem: () => fileSystem,
+      ProcessManager: () => FakeProcessManager.any(),
+      Logger: () => logger,
+      TizenSdk: () => FakeTizenSdk(fileSystem),
+      FlutterCommand: () => _WrappingCommand(),
+      BuildSystem: () => TestBuildSystem.all(
+            BuildResult(success: true),
+            (Target target, Environment environment) {
+              expect(environment.defines[kUserTargetFile], 'integration_test/app_test.dart');
+            },
+          ),
+    });
   });
+}
+
+class _UserTargetCommand extends FlutterCommand {
+  @override
+  final name = 'dummy';
+
+  @override
+  final description = '';
+
+  @override
+  String get targetFile => 'integration_test/app_test.dart';
+
+  @override
+  Future<FlutterCommandResult> runCommand() async => FlutterCommandResult.success();
+}
+
+class _WrappingCommand extends _UserTargetCommand with DartPluginRegistry {
+  @override
+  String get targetFile => 'tizen/flutter/generated_main.dart';
 }
 
 class _FakeSizeAnalyzer extends SizeAnalyzer {
